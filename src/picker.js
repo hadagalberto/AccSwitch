@@ -1,4 +1,5 @@
 import readline from 'node:readline';
+import { createInterface as createPromptInterface } from 'node:readline/promises';
 
 const ESC = '\u001b';
 
@@ -89,7 +90,7 @@ export async function select({ message, choices }) {
 }
 
 async function promptByNumber({ message, choices, selectable }) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = createPromptInterface({ input: process.stdin, output: process.stdout });
   console.log(message);
   choices.forEach((choice, i) => {
     if (choice.disabled) console.log(`   - ${choice.label} ${choice.hint ?? ''}`);
@@ -103,7 +104,7 @@ async function promptByNumber({ message, choices, selectable }) {
 }
 
 export async function ask(question, fallback = '') {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = createPromptInterface({ input: process.stdin, output: process.stdout });
   const answer = (await rl.question(`${paint('?', c.cyan, c.bold)} ${question} `)).trim();
   rl.close();
   return answer || fallback;
