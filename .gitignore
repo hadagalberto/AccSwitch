@@ -1,0 +1,9 @@
+node_modules/
+*.log
+.DS_Store
+
+# Never commit credential snapshots
+profiles/
+vault/
+*.credentials.json
+auth.json

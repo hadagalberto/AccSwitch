@@ -1,0 +1,22 @@
+{
+  "name": "accswitch",
+  "version": "0.1.0",
+  "description": "Fast account switcher for AI CLIs (Codex, Claude Code, Gemini, Grok, Copilot)",
+  "type": "module",
+  "bin": {
+    "accswitch": "src/cli.js",
+    "acs": "src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/cli.js"
+  },
+  "license": "MIT",
+  "private": true
+}
