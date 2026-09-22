@@ -240,6 +240,10 @@ function saveBundle(provider, profileName, files) {
   }
 }
 
+function profileMetaAccount(providerId, name) {
+  return readJson(path.join(profileDir(providerId, name), '.meta.json'), {})?.account ?? null;
+}
+
 function readCache() {
   return readJson(CACHE_FILE, {}) ?? {};
 }
@@ -279,14 +283,28 @@ export async function fetchUsage(provider, profileName = null, { force = false, 
       }
       const refreshed = await adapter.refresh(files);
       if (!refreshed) return { ...base, status: 'expired' };
-      // Refresh tokens rotate, so every copy of this login must be updated:
-      // the live files (or the CLI is left holding an invalidated token) and
-      // the vault snapshot (or the profile rots and needs a fresh login).
-      saveBundle(provider, null, files);
-      if (profileName) saveBundle(provider, profileName, files);
+      // Refresh tokens rotate, so persist the rotated token — but ONLY into the
+      // exact bundle we read. When active we read the LIVE files, so we write
+      // live and NEVER the named snapshot: a running CLI or a manual re-login
+      // can leave a *different* account live, and writing that into this
+      // profile's snapshot would silently overwrite it with the wrong account.
+      // When not active we read the snapshot itself, so writing it back is safe.
+      if (isActive) saveBundle(provider, null, files);
+      else saveBundle(provider, profileName, files);
     }
 
     const data = { ...base, ...(await adapter.usage(files)), status: 'ok', fetchedAt: Date.now() };
+    // If the account we actually reached no longer matches what this profile
+    // was saved as, the numbers belong to a different account. Flag it loudly
+    // instead of showing them under the wrong name. Catches both a live login
+    // that drifted (active) and a snapshot already overwritten by another
+    // account (non-active) — the .meta.json still holds the original identity.
+    if (profileName) {
+      const expected = profileMetaAccount(provider.id, profileName);
+      if (expected && data.account && expected !== data.account) {
+        data.mismatch = { expected, live: data.account };
+      }
+    }
     cache[key] = { fetchedAt: Date.now(), data };
     writeJson(CACHE_FILE, cache);
     return data;
@@ -304,6 +322,7 @@ export function summarize(usage) {
     case 'ok': {
       if (!usage.windows.length) return usage.plan ? `plano ${usage.plan}` : 'sem dados de limite';
       const text = usage.windows.map((w) => `${w.label} ${Math.round(w.percent)}%`).join(' · ');
+      if (usage.mismatch) return `⚠ login vivo é ${usage.mismatch.live} — não ${usage.mismatch.expected}`;
       return usage.status === 'stale' ? `${text} (anterior)` : text;
     }
     case 'expired':
@@ -327,6 +346,7 @@ export function summarize(usage) {
 
 /** Highest utilization across windows — drives the tray colour. */
 export function worstPercent(usage) {
+  if (usage?.mismatch) return null;
   if ((usage?.status !== 'ok' && usage?.status !== 'stale') || !usage.windows.length) return null;
   return Math.max(...usage.windows.map((w) => w.percent ?? 0));
 }
